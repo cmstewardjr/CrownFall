@@ -349,11 +349,12 @@
             }
             body { padding: 5px; }
             .game-container { flex-direction: column; align-items: center; gap: 15px; }
-            .info-panel { width: 95%; max-width: 400px; order: 1; }
-            #game-center { order: 2; }
-            #p1_panel { order: 1; }
-            #game-center { order: 2; }
-            #p2_panel { order: 3; }
+            .info-panel { width: 95%; max-width: 400px; }
+            
+            /* UPDATED ORDERING FOR MOBILE */
+            #p2_panel { order: 1; } /* Bot panel on top */
+            #game-center { order: 2; } /* Game in the middle */
+            #p1_panel { order: 3; } /* User panel on the bottom */
 
             .floating-button { width: 50px; height: 50px; font-size: 24px; }
              #help-button { right: 15px; bottom: 15px; }
@@ -364,14 +365,16 @@
 </head>
 <body>
     <div class="game-container">
-        <div id="p1_panel" class="info-panel">
-            <h2><div id="p1_swatch" class="color-swatch"></div> <span id="p1_header"></span></h2>
-            <p>Difficulty: <b id="p1_difficulty"></b></p>
-            <p>D20 Numbers: <b id="p1_die_type"></b></p>
-            <p>Pieces in Reserve: <b id="p1_reserve"></b></p>
+        <!-- P2 (BOT) PANEL MOVED TO THE TOP/LEFT -->
+        <div id="p2_panel" class="info-panel">
+            <h2><div id="p2_swatch" class="color-swatch"></div> <span id="p2_header"></span></h2>
+            <p>Difficulty: <b id="p2_difficulty"></b></p>
+            <p>D20 Numbers: <b id="p2_die_type"></b></p>
+            <p>Pieces in Reserve: <b id="p2_reserve"></b></p>
             <p>Opponents Captured:</p>
-            <div id="p1_captured_display" class="captured-pieces-display"></div>
+            <div id="p2_captured_display" class="captured-pieces-display"></div>
         </div>
+        
         <div id="game-center">
             <h1>Crownfall</h1>
             <p id="win-loss-record"></p>
@@ -389,13 +392,15 @@
                 <div id="permanent-actions"></div>
             </div>
         </div>
-        <div id="p2_panel" class="info-panel">
-            <h2><div id="p2_swatch" class="color-swatch"></div> <span id="p2_header"></span></h2>
-            <p>Difficulty: <b id="p2_difficulty"></b></p>
-            <p>D20 Numbers: <b id="p2_die_type"></b></p>
-            <p>Pieces in Reserve: <b id="p2_reserve"></b></p>
+        
+        <!-- P1 (USER) PANEL MOVED TO THE BOTTOM/RIGHT -->
+        <div id="p1_panel" class="info-panel">
+            <h2><div id="p1_swatch" class="color-swatch"></div> <span id="p1_header"></span></h2>
+            <p>Difficulty: <b id="p1_difficulty"></b></p>
+            <p>D20 Numbers: <b id="p1_die_type"></b></p>
+            <p>Pieces in Reserve: <b id="p1_reserve"></b></p>
             <p>Opponents Captured:</p>
-            <div id="p2_captured_display" class="captured-pieces-display"></div>
+            <div id="p1_captured_display" class="captured-pieces-display"></div>
         </div>
     </div>
    
