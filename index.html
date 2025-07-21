@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crownfall</title>
+    <!-- INTRO ANIMATION STYLES -->
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+            background-color: #000;
+        }
+        #gameCanvas {
+            display: block;
+        }
+    </style>
+    <!-- CROWNFALL GAME STYLES -->
     <style>
         :root {
             --p1-color: #0096C7; /* Cerulean */
@@ -24,7 +38,8 @@
             /* Piece and Image Variables */
             --p1-piece-image: none;
             --p2-piece-image: none;
-            --crown-icon-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="50" font-size="85" text-anchor="middle" dominant-baseline="middle">👑</text></svg>');
+            /* MODIFIED: Using the custom Crown.png image instead of an emoji */
+            --crown-icon-image: url('https://cmstewardjr.github.io/CrownFall/Crown.png');
             /* Base64 SVG Wood Texture */
             --wood-texture: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAiPgoJPGRlZnM+CgkJPGZpbHRlciBpZD0ibm9pc2UiIHg9IjAiIHk9IjAiPgogICAgICAgIDxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjAyIDAuMTUiIG51bU9jdGF2ZXM9IjMiIHN0aXRjaFRpbGVzPSJzdGl0Y2giLz4KCQk8L2ZpbHRlcj4KCTwvZGVmcz4KCTxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMzAiIGZpbGw9IiM4MDUwMjgiLz4KCTxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMzAiIGZpbHRlcj0idXJsKCNub2lzZSkiIHN0eWxlPSJtaXgtYmxlbmQtbW9kZTpsaWdodGVuO29wYWNpdHk6MC4xNSIvPgo8L3N2Zz4=');
 
@@ -60,14 +75,25 @@
             }
         }
 
-        body { 
+        #game-content-wrapper body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             display: flex; justify-content: center; align-items: center; 
             min-height: 100vh; color: var(--text-light); 
             margin: 0; flex-direction: column; padding: 10px; box-sizing: border-box; 
             background-color: var(--background-color);
+            overflow: auto; /* Allow scrolling for game content */
         }
-        .game-container { display: flex; gap: 30px; align-items: flex-start; width: 100%; justify-content: center; }
+        #game-content-wrapper {
+            background-color: var(--background-color);
+            height: 100%;
+            width: 100%;
+            overflow-y: auto;
+            display: flex; /* ADDED to center content */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .game-container { display: flex; gap: 30px; align-items: flex-start; width: 100%; justify-content: center; padding: 20px; box-sizing: border-box; }
         .info-panel { width: 220px; text-align: center; padding: 10px; background-color: var(--panel-color); border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.4); border: 3px solid transparent; transition: all 0.3s ease-in-out; }
         .active-turn-panel { border: 3px solid gold; box-shadow: 0 0 20px gold; transform: scale(1.02); }
         .info-panel h2 { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 10px 0; }
@@ -82,8 +108,16 @@
         }
         #game-center { position: relative; display: flex; flex-direction: column; align-items: center; }
 
+        /* ADDED: Style for the logo image */
+        #game-logo {
+            max-height: 80px;
+            max-width: 90%;
+            height: auto;
+            margin-bottom: 5px;
+        }
+
         #win-loss-record {
-            margin: -10px 0 10px;
+            margin: 0 0 10px;
             color: #ccc;
             font-size: 0.9em;
             font-weight: bold;
@@ -202,9 +236,10 @@
         .highlight-pending-attack { background-color: var(--highlight-pending-attack) !important; }
         .highlight-double-stack { background-color: var(--highlight-double-stack) !important; }
         .highlight-placement { background-color: var(--highlight-placement) !important; border: 2px dashed #3498db; }
-        .player1-crown-spot, .player2-crown-spot { background-image: var(--crown-icon-image); background-size: 65%; background-repeat: no-repeat; background-position: center; opacity: 0.5; }
+        .player1-crown-spot, .player2-crown-spot { background-image: var(--crown-icon-image); background-size: 125%; background-repeat: no-repeat; background-position: center; opacity: 1.5; }
         
-        #ui-panel { text-align: center; }
+        #ui-panel { text-align: center; color: var(--text-light);}
+        #game-center h1 { color: var(--text-light); }
         #message { margin: 15px 0; font-size: 1.3em; color: #f1faee; font-weight: bold; min-height: 2em; }
         #rollDisplay { margin-top: 10px; font-size: 1.1em; font-weight: bold; min-height: 25px; color: #a8dadc; }
         #setup-choices { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
@@ -222,7 +257,7 @@
         .modal.visible { display: flex; opacity: 1; }
         .modal-content { background-color: var(--panel-color); padding: 30px; border: 2px solid #888; width: 90%; max-width: 600px; text-align: center; border-radius: 10px; box-shadow: 0 0 25px rgba(0,0,0, 0.5); position: relative; overflow: hidden; }
         .modal-content h2, .modal-content h3 { color: #eee; }
-        .modal-content p { font-size: 1.2em; }
+        .modal-content p { font-size: 1.2em; color: var(--text-light); }
        
         body.game-over #gameBoard { pointer-events: none; opacity: 0.6; }
         #loserAnimation { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
@@ -309,7 +344,7 @@
         .ai-message ul { margin: 5px 0 5px 20px; padding: 0; }
         .ai-message li { margin-bottom: 5px; }
         
-        #rules-content { text-align: left; padding: 0 20px; max-height: 70vh; overflow-y: auto; }
+        #rules-content { text-align: left; padding: 0 20px; max-height: 70vh; overflow-y: auto; color: var(--text-light); }
         #rules-content h3 { border-bottom: 1px solid #666; padding-bottom: 5px; margin-top: 20px; }
         #rules-content h4 { margin-bottom: 5px; margin-top: 15px; color: #a8dadc; }
         #rules-content ul, #rules-content ol { padding-left: 20px; margin-top: 5px; }
@@ -347,7 +382,7 @@
                 --piece-size: 35px;
                 --label-size: 20px;
             }
-            body { padding: 5px; }
+            #game-content-wrapper body { padding: 5px; }
             .game-container { flex-direction: column; align-items: center; gap: 15px; }
             .info-panel { width: 95%; max-width: 400px; }
             
@@ -364,156 +399,493 @@
     </style>
 </head>
 <body>
-    <div class="game-container">
-        <!-- P2 (BOT) PANEL MOVED TO THE TOP/LEFT -->
-        <div id="p2_panel" class="info-panel">
-            <h2><div id="p2_swatch" class="color-swatch"></div> <span id="p2_header"></span></h2>
-            <p>Difficulty: <b id="p2_difficulty"></b></p>
-            <p>D20 Numbers: <b id="p2_die_type"></b></p>
-            <p>Pieces in Reserve: <b id="p2_reserve"></b></p>
-            <p>Opponents Captured:</p>
-            <div id="p2_captured_display" class="captured-pieces-display"></div>
-        </div>
-        
-        <div id="game-center">
-            <h1>Crownfall</h1>
-            <p id="win-loss-record"></p>
-            <div id="thinking-indicator" class="thinking-indicator">⏳</div>
-            <div id="board-container">
-                <div id="col-headers"></div>
-                <div id="row-headers"></div>
-                <div id="gameBoard"></div>
+    <canvas id="gameCanvas"></canvas>
+    
+    <!-- WRAPPER FOR THE GAME'S HTML, HIDDEN BY DEFAULT -->
+    <div id="game-content-wrapper" style="display: none;">
+        <div class="game-container">
+            <!-- P2 (BOT) PANEL MOVED TO THE TOP/LEFT -->
+            <div id="p2_panel" class="info-panel">
+                <h2><div id="p2_swatch" class="color-swatch"></div> <span id="p2_header"></span></h2>
+                <p>Difficulty: <b id="p2_difficulty"></b></p>
+                <p>D20 Numbers: <b id="p2_die_type"></b></p>
+                <p>Pieces in Reserve: <b id="p2_reserve"></b></p>
+                <p>Opponents Captured:</p>
+                <div id="p2_captured_display" class="captured-pieces-display"></div>
             </div>
-            <div id="ui-panel">
-                <div id="message"></div>
-                <div id="rollDisplay"></div>
-                <div id="setup-choices"></div>
-                <div id="action-buttons"></div>
-                <div id="permanent-actions"></div>
+            
+            <div id="game-center">
+                <!-- MODIFIED: Replaced H1 with Logo image -->
+                <img id="game-logo" src="https://cmstewardjr.github.io/CrownFall/Logo.png" alt="Crownfall Logo">
+                <p id="win-loss-record"></p>
+                <div id="thinking-indicator" class="thinking-indicator">⏳</div>
+                <div id="board-container">
+                    <div id="col-headers"></div>
+                    <div id="row-headers"></div>
+                    <div id="gameBoard"></div>
+                </div>
+                <div id="ui-panel">
+                    <div id="message"></div>
+                    <div id="rollDisplay"></div>
+                    <div id="setup-choices"></div>
+                    <div id="action-buttons"></div>
+                    <div id="permanent-actions"></div>
+                </div>
+            </div>
+            
+            <!-- P1 (USER) PANEL MOVED TO THE BOTTOM/RIGHT -->
+            <div id="p1_panel" class="info-panel">
+                <h2><div id="p1_swatch" class="color-swatch"></div> <span id="p1_header"></span></h2>
+                <p>Difficulty: <b id="p1_difficulty"></b></p>
+                <p>D20 Numbers: <b id="p1_die_type"></b></p>
+                <p>Pieces in Reserve: <b id="p1_reserve"></b></p>
+                <p>Opponents Captured:</p>
+                <div id="p1_captured_display" class="captured-pieces-display"></div>
             </div>
         </div>
-        
-        <!-- P1 (USER) PANEL MOVED TO THE BOTTOM/RIGHT -->
-        <div id="p1_panel" class="info-panel">
-            <h2><div id="p1_swatch" class="color-swatch"></div> <span id="p1_header"></span></h2>
-            <p>Difficulty: <b id="p1_difficulty"></b></p>
-            <p>D20 Numbers: <b id="p1_die_type"></b></p>
-            <p>Pieces in Reserve: <b id="p1_reserve"></b></p>
-            <p>Opponents Captured:</p>
-            <div id="p1_captured_display" class="captured-pieces-display"></div>
-        </div>
+       
+        <!-- Modals -->
+        <div id="dice-modal" class="modal"><div id="dice-modal-content" class="modal-content"><h3 id="dice-title">Rolling...</h3><div id="dice-container"><svg id="dice-svg" viewBox="0 0 100 100"><polygon class="face" points="50,1 95,25 95,75 50,99 5,75 5,25" /><text class="text" x="50" y="50">20</text></svg></div><div id="dice-results"></div></div></div>
+        <div id="victoryModal" class="modal"><div id="victoryContent" class="modal-content"><div id="fireworks-container"></div><div id="loserAnimation" style="display: none;"><div class="loser-icon"></div></div><h2 id="victoryTitle"></h2><p id="victoryMessage"></p><div id="victoryActions"></div></div></div>
+        <div id="crownChoiceModal" class="modal"><div id="crownChoiceContent" class="modal-content"><h3>You've Reached the Crown Space!</h3><p>You may Double-Stack this piece or place a Reinforcement from your reserve.</p><p>Reserve: <b id="crown-modal-reserve-count">X</b></p><div id="crownChoiceActions"></div></div></div>
+        <div id="quitConfirmModal" class="modal"><div class="modal-content"><h3>Quit Game?</h3><p>Are you sure you want to forfeit? This will count as a loss.</p><div id="quitConfirmActions"><button id="quitConfirmYes">Yes, I Quit</button><button id="quitConfirmNo">No, Keep Playing</button></div></div></div>
+    
+        <!-- Floating Buttons and their Modals -->
+        <div id="help-button" class="floating-button">❓</div>
+        <div id="rulesModal" class="modal"><div class="modal-content"><span id="close-rules-button" class="modal-close-button">×</span><h2>Rules & Help</h2><div id="rules-content">
+            <h3>1. Game Objective</h3>
+            <p>Be the first player to either:</p>
+            <ul>
+                <li>Eliminate all of your opponent's pieces.</li>
+                <li>Successfully create four crowned (double-stacked) pieces.</li>
+                <li>Force your opponent into a position where they have no legal moves.</li>
+            </ul>
+    
+            <h3>2. Game Components & Setup</h3>
+            <h4>Grid Numbering (Row, Column)</h4>
+            <ul>
+                <li>The game is played on a 7x5 grid.</li>
+                <li>Rows are labeled A–E (top to bottom) and columns 1–7 (left to right).</li>
+                <li>Player 2 (Bot) starts on Row A. Player 1 (You) starts on Row E.</li>
+            </ul>
+            <h4>Setup Process</h4>
+            <ol>
+                <li>Each player starts with 4 pieces on the board and 12 in reserve.</li>
+                <li>Players roll a D20 to see who goes first. The winner chooses their color and whether they are <b>"Even"</b> or <b>"Odd"</b> for die rolls. The high roller also moves first.</li>
+                <li>Place your 4 starting pieces anywhere on your back row (Row E for Player 1, Row A for Player 2).</li>
+                <li><b>CRITICAL:</b> A player may NOT place a starting piece on their own crown space (E,4 for Player 1; A,4 for Player 2).</li>
+            </ol>
+            <h4>The Crown Space</h4>
+            <ul>
+                <li>Each player has a designated crown space, represented by a crown icon.</li>
+                <li><b>FORFEIT RULE:</b> A player may NOT occupy their own crown space at any time. Moving onto your own crown space results in an automatic forfeit of the game.</li>
+            </ul>
+    
+            <h3>3. Piece Status & Management</h3>
+            <h4>Crowning Pieces</h4>
+            <ul>
+                <li>When a regular piece reaches the opponent's crown space, you get a choice (if you have reserve pieces):
+                    <ol>
+                        <li><b>Double-Stack:</b> Take a piece from your reserve and place it on top, creating a "Crowned" piece. This uses one reserve piece.</li>
+                        <li><b>Reinforce:</b> This is a two-part move.
+                            <ol style="margin-top: 5px;">
+                                <li>First, you place a new piece from your reserve onto an empty space to the left or right of your <b>OWN</b> crown space.</li>
+                                <li>Second, the piece that just reached the opponent's crown space is immediately moved back to your starting row. It is placed on the opposite side of your crown from where you placed the new piece.</li>
+                                <li><b>Bumping:</b> If a target space for either piece is occupied, it will be placed in the next available empty space on that row, moving outwards from the crown.</li>
+                                <li>This option is only available if there are valid empty spots for <b>both</b> the new piece and the relocated original piece.</li>
+                            </ol>
+                        </li>
+                    </ol>
+                </li>
+                <li>A piece can only be double-stacked once.</li>
+            </ul>
+            <h4>Captured Pieces</h4>
+            <ul>
+                <li>Captured pieces are permanently removed from play but are kept on the side as trophies for the capturing player.</li>
+            </ul>
+    
+            <h3>4. Movement & Attacks</h3>
+            <h4>Basic Movement</h4>
+            <ul>
+                <li>Pieces move one square at a time, horizontally or vertically (forwards or backwards).</li>
+            </ul>
+            <h4>Basic Attack</h4>
+            <ul>
+                <li>Pieces attack by jumping <b>diagonally</b> over an opponent's piece to an empty square. The jumped piece is captured.</li>
+            </ul>
+            <h4>Chain Jump “Double-Stack Attack”</h4>
+            <ul>
+                <li>Can only be performed by a <b>crowned</b> piece.</li>
+                <li>This attack allows a crowned piece to jump over <b>two</b> separate opponent pieces in a sequence. You must declare the attack before rolling.</li>
+                <li>The dice roll for <b>each jump</b> is determined by its target:
+                    <ul>
+                        <li>Jumping a single piece: Attacker rolls <b>1d20</b>. A successful roll (matching your Even/Odd type) captures the piece.</li>
+                        <li>Jumping a crowned piece: This is a "Best of 7" contest (<b>7d20</b>). 4+ successes are needed to **un-crown** the defending piece, which remains on the board.</li>
+                    </ul>
+                </li>
+                <li>If any roll in the sequence fails, the entire attack ends immediately, and your turn is over.</li>
+                <li>After both jumps are successful:
+                    <ul>
+                        <li>The original attacking piece "disassembles". It becomes a regular (uncrowned) piece and lands on the empty square after the <b>first</b> opponent.</li>
+                        <li>A second regular piece is created and lands on the empty square after the <b>second</b> opponent.</li>
+                        <li>The two pieces are now separate units.</li>
+                    </ul>
+                </li>
+            </ul>
+    
+            <h3>5. Die Roll for Attack & Defense</h3>
+            <h4>Attacking a Single Piece</h4>
+            <ul>
+                <li>The attacker rolls <b>1d20</b>. If the roll matches their type (Even/Odd), the attack succeeds.</li>
+            </ul>
+            <h4>Attacking a Crowned Piece (with a Single Piece)</h4>
+            <ul>
+                <li>The attacker rolls <b>3d20</b>. Two or more successful rolls are needed to un-crown the defender, reverting it to a single piece.</li>
+            </ul>
+            <h4>Attacking a Crowned Piece (with a Crowned Piece)</h4>
+            <ul>
+                <li>This is a "Best of 7" contest. The attacker rolls <b>7d20</b>.</li>
+                <li>If the attacker gets <b>4+</b> successes (matching their type), the defender is uncrowned.</li>
+                <li>If the defender's number is rolled <b>4+</b> times during the attacker's rolls, the <b>ATTACKER</b> is uncrowned instead.</li>
+            </ul>
+        </div></div></div>
+        <div id="ai-button" class="floating-button">🤖</div>
+        <div id="aiModal" class="modal"><div class="modal-content"><span id="close-ai-button" class="modal-close-button">×</span><h2>AI Assistant</h2><div id="ai-chat-display"></div></div></div>
+        <div id="audio-toggle-button" class="floating-button">🔊</div>
     </div>
-   
-    <!-- Modals -->
-    <div id="dice-modal" class="modal"><div id="dice-modal-content" class="modal-content"><h3 id="dice-title">Rolling...</h3><div id="dice-container"><svg id="dice-svg" viewBox="0 0 100 100"><polygon class="face" points="50,1 95,25 95,75 50,99 5,75 5,25" /><text class="text" x="50" y="50">20</text></svg></div><div id="dice-results"></div></div></div>
-    <div id="victoryModal" class="modal"><div id="victoryContent" class="modal-content"><div id="fireworks-container"></div><div id="loserAnimation" style="display: none;"><div class="loser-icon"></div></div><h2 id="victoryTitle"></h2><p id="victoryMessage"></p><div id="victoryActions"></div></div></div>
-    <div id="crownChoiceModal" class="modal"><div id="crownChoiceContent" class="modal-content"><h3>You've Reached the Crown Space!</h3><p>You may Double-Stack this piece or place a Reinforcement from your reserve.</p><p>Reserve: <b id="crown-modal-reserve-count">X</b></p><div id="crownChoiceActions"></div></div></div>
-    <div id="quitConfirmModal" class="modal"><div class="modal-content"><h3>Quit Game?</h3><p>Are you sure you want to forfeit? This will count as a loss.</p><div id="quitConfirmActions"><button id="quitConfirmYes">Yes, I Quit</button><button id="quitConfirmNo">No, Keep Playing</button></div></div></div>
 
-    <!-- Floating Buttons and their Modals -->
-    <div id="help-button" class="floating-button">❓</div>
-    <div id="rulesModal" class="modal"><div class="modal-content"><span id="close-rules-button" class="modal-close-button">×</span><h2>Rules & Help</h2><div id="rules-content">
-        <h3>1. Game Objective</h3>
-        <p>Be the first player to either:</p>
-        <ul>
-            <li>Eliminate all of your opponent's pieces.</li>
-            <li>Successfully create four crowned (double-stacked) pieces.</li>
-            <li>Force your opponent into a position where they have no legal moves.</li>
-        </ul>
-
-        <h3>2. Game Components & Setup</h3>
-        <h4>Grid Numbering (Row, Column)</h4>
-        <ul>
-            <li>The game is played on a 7x5 grid.</li>
-            <li>Rows are labeled A–E (top to bottom) and columns 1–7 (left to right).</li>
-            <li>Player 2 (Bot) starts on Row A. Player 1 (You) starts on Row E.</li>
-        </ul>
-        <h4>Setup Process</h4>
-        <ol>
-            <li>Each player starts with 4 pieces on the board and 12 in reserve.</li>
-            <li>Players roll a D20 to see who goes first. The winner chooses their color and whether they are <b>"Even"</b> or <b>"Odd"</b> for die rolls. The high roller also moves first.</li>
-            <li>Place your 4 starting pieces anywhere on your back row (Row E for Player 1, Row A for Player 2).</li>
-            <li><b>CRITICAL:</b> A player may NOT place a starting piece on their own crown space (E,4 for Player 1; A,4 for Player 2).</li>
-        </ol>
-        <h4>The Crown Space</h4>
-        <ul>
-            <li>Each player has a designated crown space, represented by a crown icon.</li>
-            <li><b>FORFEIT RULE:</b> A player may NOT occupy their own crown space at any time. Moving onto your own crown space results in an automatic forfeit of the game.</li>
-        </ul>
-
-        <h3>3. Piece Status & Management</h3>
-        <h4>Crowning Pieces</h4>
-        <ul>
-            <li>When a regular piece reaches the opponent's crown space, you get a choice (if you have reserve pieces):
-                <ol>
-                    <li><b>Double-Stack:</b> Take a piece from your reserve and place it on top, creating a "Crowned" piece. This uses one reserve piece.</li>
-                    <li><b>Reinforce:</b> This is a two-part move.
-                        <ol style="margin-top: 5px;">
-                            <li>First, you place a new piece from your reserve onto an empty space to the left or right of your <b>OWN</b> crown space.</li>
-                            <li>Second, the piece that just reached the opponent's crown space is immediately moved back to your starting row. It is placed on the opposite side of your crown from where you placed the new piece.</li>
-                            <li><b>Bumping:</b> If a target space for either piece is occupied, it will be placed in the next available empty space on that row, moving outwards from the crown.</li>
-                            <li>This option is only available if there are valid empty spots for <b>both</b> the new piece and the relocated original piece.</li>
-                        </ol>
-                    </li>
-                </ol>
-            </li>
-            <li>A piece can only be double-stacked once.</li>
-        </ul>
-        <h4>Captured Pieces</h4>
-        <ul>
-            <li>Captured pieces are permanently removed from play but are kept on the side as trophies for the capturing player.</li>
-        </ul>
-
-        <h3>4. Movement & Attacks</h3>
-        <h4>Basic Movement</h4>
-        <ul>
-            <li>Pieces move one square at a time, horizontally or vertically (forwards or backwards).</li>
-        </ul>
-        <h4>Basic Attack</h4>
-        <ul>
-            <li>Pieces attack by jumping <b>diagonally</b> over an opponent's piece to an empty square. The jumped piece is captured.</li>
-        </ul>
-        <h4>Chain Jump “Double-Stack Attack”</h4>
-        <ul>
-            <li>Can only be performed by a <b>crowned</b> piece.</li>
-            <li>This attack allows a crowned piece to jump over <b>two</b> separate opponent pieces in a sequence. You must declare the attack before rolling.</li>
-            <li>The dice roll for <b>each jump</b> is determined by its target:
-                <ul>
-                    <li>Jumping a single piece: Attacker rolls <b>1d20</b>. A successful roll (matching your Even/Odd type) captures the piece.</li>
-                    <li>Jumping a crowned piece: This is a "Best of 7" contest (<b>7d20</b>). 4+ successes are needed to **un-crown** the defending piece, which remains on the board.</li>
-                </ul>
-            </li>
-            <li>If any roll in the sequence fails, the entire attack ends immediately, and your turn is over.</li>
-            <li>After both jumps are successful:
-                <ul>
-                    <li>The original attacking piece "disassembles". It becomes a regular (uncrowned) piece and lands on the empty square after the <b>first</b> opponent.</li>
-                    <li>A second regular piece is created and lands on the empty square after the <b>second</b> opponent.</li>
-                    <li>The two pieces are now separate units.</li>
-                </ul>
-            </li>
-        </ul>
-
-        <h3>5. Die Roll for Attack & Defense</h3>
-        <h4>Attacking a Single Piece</h4>
-        <ul>
-            <li>The attacker rolls <b>1d20</b>. If the roll matches their type (Even/Odd), the attack succeeds.</li>
-        </ul>
-        <h4>Attacking a Crowned Piece (with a Single Piece)</h4>
-        <ul>
-            <li>The attacker rolls <b>3d20</b>. Two or more successful rolls are needed to un-crown the defender, reverting it to a single piece.</li>
-        </ul>
-        <h4>Attacking a Crowned Piece (with a Crowned Piece)</h4>
-        <ul>
-            <li>This is a "Best of 7" contest. The attacker rolls <b>7d20</b>.</li>
-            <li>If the attacker gets <b>4+</b> successes (matching their type), the defender is uncrowned.</li>
-            <li>If the defender's number is rolled <b>4+</b> times during the attacker's rolls, the <b>ATTACKER</b> is uncrowned instead.</li>
-        </ul>
-    </div></div></div>
-    <div id="ai-button" class="floating-button">🤖</div>
-    <div id="aiModal" class="modal"><div class="modal-content"><span id="close-ai-button" class="modal-close-button">×</span><h2>AI Assistant</h2><div id="ai-chat-display"></div></div></div>
-    <div id="audio-toggle-button" class="floating-button">🔊</div>
-
+    <!-- SCRIPT 1: INTRO ANIMATION -->
     <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            let lastTime = 0;
+            let introPhase = 'splash';
+
+            // ===================================================================
+            // SPLASH SCREEN LOGIC
+            // ===================================================================
+            const SPLASH_FADE_TIME = 1.5;
+            const SPLASH_HOLD_TIME = 2.0;
+            let splashPhase = 'fade-in';
+            let splashTimer = 0;
+            const splashImage = new Image();
+
+            function updateSplashScreen(dt) {
+                splashTimer += dt;
+                switch (splashPhase) {
+                    case 'fade-in':
+                        if (splashTimer >= SPLASH_FADE_TIME) {
+                            splashPhase = 'hold';
+                            splashTimer = 0;
+                        }
+                        break;
+                    case 'hold':
+                        if (splashTimer >= SPLASH_HOLD_TIME) {
+                            splashPhase = 'fade-out';
+                            splashTimer = 0;
+                        }
+                        break;
+                    case 'fade-out':
+                        if (splashTimer >= SPLASH_FADE_TIME) {
+                            splashPhase = 'done';
+                            introPhase = 'loading';
+                            loadCrownfallAssets();
+                        }
+                        break;
+                }
+            }
+
+            function renderSplashScreen() {
+                let splashOpacity = 0;
+                if (splashPhase === 'fade-in') splashOpacity = Math.min(1.0, splashTimer / SPLASH_FADE_TIME);
+                if (splashPhase === 'hold') splashOpacity = 1.0;
+                if (splashPhase === 'fade-out') splashOpacity = Math.max(0.0, 1.0 - (splashTimer / SPLASH_FADE_TIME));
+
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.globalAlpha = splashOpacity;
+                const aspect = splashImage.width / splashImage.height;
+                let drawW = canvas.width * 0.9;
+                let drawH = drawW / aspect;
+                if (drawH > canvas.height * 0.9) {
+                    drawH = canvas.height * 0.9;
+                    drawW = drawH * aspect;
+                }
+                ctx.drawImage(splashImage, (canvas.width - drawW) / 2, (canvas.height - drawH) / 2, drawW, drawH);
+                ctx.globalAlpha = 1.0;
+            }
+
+            // ===================================================================
+            // CROWNFALL ASSET LOADING
+            // ===================================================================
+            let imagesLoaded = 0;
+            const totalImages = 3; 
+            const crownImage = new Image();
+            const logoImage = new Image();
+            const logo2RefImage = new Image(); 
+
+            function onAllImagesLoaded() {
+                introPhase = 'crownfall'; 
+                handleResize();
+                lastTime = performance.now();
+            }
+
+            function loadCrownfallAssets() {
+                crownImage.src = 'https://cmstewardjr.github.io/CrownFall/Crown.png';
+                logoImage.src = 'https://cmstewardjr.github.io/CrownFall/Logo.png';
+                logo2RefImage.src = 'https://cmstewardjr.github.io/CrownFall/Logo2.png'; 
+
+                crownImage.onload = () => { imagesLoaded++; if (imagesLoaded === totalImages) onAllImagesLoaded(); };
+                logoImage.onload = () => { imagesLoaded++; if (imagesLoaded === totalImages) onAllImagesLoaded(); };
+                logo2RefImage.onload = () => { imagesLoaded++; if (imagesLoaded === totalImages) onAllImagesLoaded(); };
+            }
+
+            // ===================================================================
+            // CROWNFALL SPLASH SCREEN LOGIC
+            // ===================================================================
+            let layout = {}; 
+
+            function calculateLayout() {
+                const baseSize = Math.min(canvas.width * 0.9, canvas.height * 0.65);
+                const scale = baseSize / logo2RefImage.height;
+                const center = { x: canvas.width / 2, y: canvas.height / 2 };
+                const logoOffsetY_from_crown_center = crownImage.height * 0.000;
+
+                layout = {
+                    scale: scale,
+                    crownFinalY: center.y,
+                    logoFinalY: center.y + (logoOffsetY_from_crown_center * scale),
+                    circleRadius: (logo2RefImage.height * scale) / 2 + 20 * scale,
+                    center: center
+                };
+            }
+
+            // --- Animation State ---
+            let crownfallPhase = 'crown-fall'; 
+            let crownfallTimer = 0;
+            
+            let crownY = -150; 
+            let crownBounceScale = 1;
+            let logoOpacity = 0;
+            let logoRevealScale = 0.2;
+            let finalOpacity = 1.0;
+            let lingerOpacity = 0;
+            
+            let circleTraceProgress = 0;
+            let pulseTimer = 0;
+
+            const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+
+            // ===================================================================
+            // GAME STATE - THIS IS THE BRIDGE TO THE GAME LOGIC
+            // ===================================================================
+            let gameStarted = false;
+
+            function initGame() {
+                gameStarted = true;
+                introPhase = 'game'; // Stop the intro animation loop from doing work
+                
+                // Hide the intro canvas and show the game content
+                const introCanvas = document.getElementById('gameCanvas');
+                const gameContent = document.getElementById('game-content-wrapper');
+
+                introCanvas.style.display = 'none';
+                gameContent.style.display = 'flex'; // Changed to flex to help with centering
+                
+                // Set body style for the game
+                document.body.style.overflow = 'auto';
+                document.body.style.backgroundColor = 'var(--background-color)'; // Set game background
+
+                // Call the main initializer from the second script
+                if (typeof initializeCrownfallGame === 'function') {
+                    initializeCrownfallGame();
+                } else {
+                    console.error("The function 'initializeCrownfallGame' was not found. Game cannot start.");
+                    gameContent.innerHTML = "<h1 style='color: red; text-align: center;'>Error: Game logic failed to load.</h1>";
+                }
+            }
+
+            function updateGame(dt) {
+                // This function is no longer needed as the game handles its own events.
+            }
+
+            function renderGame() {
+                // This function is no longer needed as the game handles its own DOM rendering.
+            }
+
+            function update(dt) {
+                if (introPhase === 'splash') {
+                    updateSplashScreen(dt);
+                    return;
+                }
+                
+                if (introPhase === 'game') {
+                    updateGame(dt);
+                    return;
+                }
+                
+                if (introPhase !== 'crownfall') return;
+
+                crownfallTimer += dt;
+                switch(crownfallPhase) {
+                    case 'crown-fall':
+                        const fallDuration = 1.2, bounceDuration = 0.4;
+                        if (crownfallTimer < fallDuration) {
+                            const progress = crownfallTimer / fallDuration;
+                            crownY = -150 + (layout.crownFinalY - -150) * easeOutCubic(progress);
+                        } else if (crownfallTimer < fallDuration + bounceDuration) {
+                            const bounceProgress = (crownfallTimer - fallDuration) / bounceDuration;
+                            crownBounceScale = 1.0 + Math.sin(bounceProgress * Math.PI) * 0.1;
+                        } else {
+                            crownY = layout.crownFinalY;
+                            crownBounceScale = 1;
+                            crownfallPhase = 'logo-fade';
+                            crownfallTimer = 0;
+                        }
+                        break;
+                    
+                    case 'logo-fade':
+                        const combinedDuration = 2.0;
+                        circleTraceProgress = Math.min(1, crownfallTimer / combinedDuration);
+                        const logoFadeProgress = Math.min(1, crownfallTimer / (combinedDuration - 0.5));
+                        logoOpacity = logoFadeProgress;
+                        logoRevealScale = 0.2 + 0.8 * easeOutCubic(logoFadeProgress); 
+
+                        if (crownfallTimer >= combinedDuration) { 
+                            crownfallPhase = 'final-hold'; 
+                            crownfallTimer = 0; 
+                        }
+                        break;
+                    
+                    case 'final-hold':
+                        const holdDuration = 2.0;
+                        if (crownfallTimer >= holdDuration) { 
+                            crownfallPhase = 'fade-out'; 
+                            crownfallTimer = 0; 
+                        }
+                        break;
+
+                    case 'fade-out':
+                        const finalFadeDuration = 1.5;
+                        const fadeProgress = Math.min(1.0, crownfallTimer / finalFadeDuration);
+                        finalOpacity = 1.0 - fadeProgress;
+                        lingerOpacity = Math.max(0, 1.0 - (crownfallTimer - 0.2) / (finalFadeDuration + 0.5));
+                        if (fadeProgress >= 1) { 
+                            initGame(); // START THE GAME
+                        }
+                        break;
+                }
+
+                if (circleTraceProgress > 0) {
+                    pulseTimer += dt;
+                }
+            }
+
+            function render() {
+                if (introPhase === 'splash') {
+                    renderSplashScreen();
+                    return;
+                }
+                
+                if (introPhase === 'game') {
+                    renderGame();
+                    return;
+                }
+                
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                if (introPhase === 'done' || !layout.center) return;
+
+                ctx.save();
+                ctx.globalAlpha = finalOpacity;
+                
+                if (circleTraceProgress > 0) {
+                    ctx.save();
+                    ctx.lineWidth = 5;
+                    ctx.shadowColor = '#00CED1';
+                    ctx.shadowBlur = 15;
+
+                    const pulseRotation = pulseTimer * 2; 
+                    const gradient = ctx.createConicGradient(pulseRotation, layout.center.x, layout.center.y);
+                    
+                    gradient.addColorStop(0, '#FFD700');
+                    gradient.addColorStop(0.05, '#00CED1');
+                    gradient.addColorStop(0.95, '#00CED1');
+                    gradient.addColorStop(1, '#FFD700');
+
+                    ctx.strokeStyle = gradient;
+
+                    const startAngle = -Math.PI / 2;
+                    const endAngle = startAngle + (circleTraceProgress * Math.PI * 2);
+                    
+                    ctx.beginPath();
+                    ctx.arc(layout.center.x, layout.center.y, layout.circleRadius, startAngle, endAngle);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                ctx.save();
+                const crownW = crownImage.width * crownBounceScale * layout.scale;
+                const crownH = crownImage.height * crownBounceScale * layout.scale;
+                ctx.drawImage(crownImage, layout.center.x - crownW / 2, crownY - crownH / 2, crownW, crownH);
+                ctx.restore();
+
+                ctx.save();
+                ctx.globalAlpha = logoOpacity;
+                const logoW = logoImage.width * logoRevealScale * layout.scale;
+                const logoH = logoImage.height * logoRevealScale * layout.scale;
+                ctx.drawImage(logoImage, layout.center.x - logoW / 2, layout.logoFinalY - logoH / 2, logoW, logoH);
+                ctx.restore();
+                
+                ctx.restore(); 
+
+                if (crownfallPhase === 'fade-out' && lingerOpacity > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = lingerOpacity;
+                    ctx.globalCompositeOperation = 'lighter'; 
+                    ctx.filter = 'blur(8px)';
+                    const crownW = crownImage.width * layout.scale;
+                    const crownH = crownImage.height * layout.scale;
+                    ctx.drawImage(crownImage, layout.center.x - crownW / 2, layout.crownFinalY - crownH / 2, crownW, crownH);
+                    ctx.restore();
+                }
+            }
+
+            function loop(timestamp) {
+                if (introPhase === 'game') return; // Stop the loop once the game starts
+                const dt = (timestamp - lastTime) / 1000;
+                lastTime = timestamp;
+                update(dt);
+                render();
+                requestAnimationFrame(loop);
+            }
+
+            function handleResize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                if (introPhase === 'crownfall') {
+                   calculateLayout(); 
+                }
+            }
+
+            window.addEventListener('resize', handleResize);
+            
+            // START EVERYTHING
+            handleResize();
+            splashImage.onload = () => {
+                lastTime = performance.now();
+                requestAnimationFrame(loop);
+            };
+            splashImage.src = 'https://nerdrealm419.github.io/Go-Go-Monkey-Go-v1/splash-screen.png';
+        });
+    </script>
+    
+    <!-- SCRIPT 2: CROWNFALL GAME LOGIC -->
+    <script>
+    function initializeCrownfallGame() {
         const audioManager = {
             ctx: null,
             masterGain: null,
@@ -2235,8 +2607,9 @@
         const audioToggleButton = getEl('audio-toggle-button');
         audioToggleButton.onclick = () => audioManager.toggleMute();
 
-        getEl('message').textContent = "Ready to Play!";
+        // This is the final call that starts the game logic.
         initializeGame();
+    }
     </script>
 </body>
 </html>
