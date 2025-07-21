@@ -1160,16 +1160,18 @@
             getEl('p1_header').textContent = `Player 1`;
             getEl('p2_header').textContent = `Player 2 (Bot)`;
             
-            const difficulty = gameState.isHardMode ? 'Hard' : 'Normal';
+            let difficulty = gameState.isHardMode ? 'Hard' : 'Normal';
+            if (gameState.isProfessionalMode) difficulty = 'Professional';
             getEl('p1_difficulty').textContent = gameState.isHardMode === null ? 'N/A' : difficulty;
             getEl('p2_difficulty').textContent = gameState.isHardMode === null ? 'N/A' : difficulty;
+
 
             getEl('p1_die_type').textContent = gameState.players.p1.dieType ? gameState.players.p1.dieType.charAt(0).toUpperCase() + gameState.players.p1.dieType.slice(1) : 'N/A';
             getEl('p2_die_type').textContent = gameState.players.p2.dieType ? gameState.players.p2.dieType.charAt(0).toUpperCase() + gameState.players.p2.dieType.slice(1) : 'N/A';
             getEl('p1_reserve').textContent = gameState.players.p1.piecesInReserve;
             getEl('p2_reserve').textContent = gameState.players.p2.piecesInReserve;
             const p1CapturedContainer = getEl('p1_captured_display');
-            p1CapturedContainer.innerHTML = '';
+p1CapturedContainer.innerHTML = '';
             for (let i = 0; i < gameState.players.p1.capturedOpponentPieces; i++) {
                 const capturedEl = document.createElement('div');
                 capturedEl.className = 'captured-icon';
@@ -1219,11 +1221,17 @@
 
                     if (r === gameState.crownSpaces.p1.row && c === gameState.crownSpaces.p1.col) cell.classList.add('player1-crown-spot');
                     if (r === gameState.crownSpaces.p2.row && c === gameState.crownSpaces.p2.col) cell.classList.add('player2-crown-spot');
-                    if (gameState.highlightedMoves.some(m => m.r === r && m.c === c)) cell.classList.add('highlight-move');
-                    if (gameState.highlightedAttacks.some(a => a.landing.r === r && a.landing.c === c)) cell.classList.add('highlight-attack');
-                    if (gameState.highlightedDoubleStackAttacks.some(p => p.r === r && p.c === c)) cell.classList.add('highlight-double-stack');
-                    if (gameState.highlightedPendingAttack && gameState.highlightedPendingAttack.r === r && gameState.highlightedPendingAttack.c === c) cell.classList.add('highlight-pending-attack');
-                    if (gameState.highlightedPlacements.some(p => p.r === r && p.c === c)) cell.classList.add('highlight-placement');
+                    
+                    // FIXED: In Professional Mode, do not show any visual aids for moves.
+                    // The logic still relies on these arrays, but they are not rendered visually.
+                    if (!gameState.isProfessionalMode) {
+                        if (gameState.highlightedMoves.some(m => m.r === r && m.c === c)) cell.classList.add('highlight-move');
+                        if (gameState.highlightedAttacks.some(a => a.landing.r === r && a.landing.c === c)) cell.classList.add('highlight-attack');
+                        if (gameState.highlightedDoubleStackAttacks.some(p => p.r === r && p.c === c)) cell.classList.add('highlight-double-stack');
+                        if (gameState.highlightedPendingAttack && gameState.highlightedPendingAttack.r === r && gameState.highlightedPendingAttack.c === c) cell.classList.add('highlight-pending-attack');
+                        if (gameState.highlightedPlacements.some(p => p.r === r && p.c === c)) cell.classList.add('highlight-placement');
+                    }
+                    
                     const piece = getPieceAt(r, c);
                     if (piece) {
                         const pieceEl = document.createElement('div');
@@ -1284,29 +1292,6 @@
             }
         }
        
-        function handleBoardClick(event) {
-            if (gameState.gamePhase === 'GAME_OVER' || gameState.pendingMultiRoll) return;
-            const pieceEl = event.target.closest('[data-piece-id]');
-            const cellEl = event.target.closest('[data-row]');
-            if (gameState.gamePhase === 'PLAYING' && gameState.turn === 'p1') {
-                if (pieceEl) {
-                    const pieceId = parseInt(pieceEl.dataset.pieceId);
-                    const piece = getPiece(pieceId);
-                    if (piece.owner === 'p1') selectPiece(pieceId);
-                } else if (cellEl && gameState.selectedPieceId !== null) {
-                    const r = parseInt(cellEl.dataset.row);
-                    const c = parseInt(cellEl.dataset.col);
-                    declareMoveOrAttack(r, c);
-                }
-            } else if (gameState.gamePhase === 'SETUP_PLACEMENT') {
-                if (cellEl && gameState.placingPlayer === 'p1') {
-                    const r = parseInt(cellEl.dataset.row);
-                    const c = parseInt(cellEl.dataset.col);
-                    placeStartingPiece(r, c);
-                }
-            }
-        }
-
         function initializeGame() {
             displayRecord();
             document.body.classList.remove('game-over');
@@ -1328,7 +1313,7 @@
                 crownSpaces: { p1: { row: 4, col: 3 }, p2: { row: 0, col: 3 } },
                 turn: null, gamePhase: 'SETUP_DIFFICULTY', winner: null,
                 isHardMode: null,
-                isProfessionalMode: false, // <-- ADD THIS LINE
+                isProfessionalMode: false,
                 moveHistory: [],
                 message: "Choose your difficulty.",
                 rollMessage: '', selectedPieceId: null,
@@ -1338,10 +1323,9 @@
                 actions: [
                     { text: 'Normal Mode', onClick: () => setDifficulty(false) },
                     { text: 'Hard Mode', onClick: () => setDifficulty(true) },
-                    { text: 'Professional Mode', onClick: () => setProfessionalMode() } // <-- ADD THIS BUTTON
+                    { text: 'Professional Mode', onClick: () => setProfessionalMode() }
                 ]
             };
-            // ADD THIS LINE TO MAKE SURE THE AI BUTTON IS VISIBLE FOR A NEW GAME
             getEl('ai-button').style.display = 'flex'; 
             document.querySelectorAll('.modal').forEach(m => m.classList.remove('visible'));
             render();
@@ -1349,28 +1333,19 @@
 
         function setDifficulty(isHard) {
             gameState.isHardMode = isHard;
+            gameState.isProfessionalMode = false;
             gameState.gamePhase = 'SETUP_D20_ROLL';
             gameState.message = "Let's begin! Roll to start the game.";
             gameState.actions = [{ text: 'Roll to Start Game', onClick: setupRollOff }];
             render();
         }
 
-        // ADD THIS ENTIRE NEW FUNCTION
         function setProfessionalMode() {
-            gameState.isHardMode = true; // Use Hard Mode logic
+            gameState.isHardMode = true; 
             gameState.isProfessionalMode = true;
-            getEl('ai-button').style.display = 'none'; // Hide the AI button
+            getEl('ai-button').style.display = 'none'; 
             gameState.gamePhase = 'SETUP_D20_ROLL';
-            gameState.message = "Professional Mode selected. Roll to start.";
-            gameState.actions = [{ text: 'Roll to Start Game', onClick: setupRollOff }];
-            render();
-        }
-
-
-        function setDifficulty(isHard) {
-            gameState.isHardMode = isHard;
-            gameState.gamePhase = 'SETUP_D20_ROLL';
-            gameState.message = "Let's begin! Roll to start the game.";
+            gameState.message = "Professional Mode: No hints. Good luck. Roll to start.";
             gameState.actions = [{ text: 'Roll to Start Game', onClick: setupRollOff }];
             render();
         }
@@ -1454,7 +1429,13 @@
         }
        
         function placeStartingPiece(r, c) {
-            if (gameState.highlightedPlacements.some(p => p.r === r && p.c === c)) {
+            const isValidPlacement = gameState.highlightedPlacements.some(p => p.r === r && p.c === c);
+            
+            // In professional mode, highlights aren't shown, so we allow any valid spot on the back row.
+            const playerStartRow = gameState.placingPlayer === 'p1' ? gameState.boardSize.rows - 1 : 0;
+            const isProModePlacement = gameState.isProfessionalMode && r === playerStartRow && !isOwnCrownSpace(gameState.placingPlayer, r, c) && getPieceAt(r,c) === null;
+
+            if (isValidPlacement || isProModePlacement) {
                 audioManager.play('move');
                 const newId = gameState.pieces.length + 1;
                 gameState.pieces.push({ id: newId, owner: 'p1', isCrowned: false, position: { r, c } });
@@ -1503,15 +1484,94 @@
             gameState.actions = [];
             render();
         }
+        
+        // ADDED: This function was missing. It's crucial for calculating available actions.
+        function selectPiece(pieceId) {
+            const piece = getPiece(pieceId);
+            if (!piece || piece.owner !== 'p1') return;
+
+            // If the same piece is clicked again, deselect it.
+            if (gameState.selectedPieceId === pieceId) {
+                gameState.selectedPieceId = null;
+                gameState.highlightedMoves = [];
+                gameState.highlightedAttacks = [];
+                gameState.highlightedDoubleStackAttacks = [];
+                gameState.actions = [];
+                gameState.message = "Select a piece to move.";
+                render();
+                return;
+            }
+            
+            gameState.selectedPieceId = pieceId;
+            gameState.highlightedMoves = [];
+            gameState.highlightedAttacks = [];
+            gameState.highlightedDoubleStackAttacks = [];
+            gameState.actions = [];
+            gameState.pendingDoubleStackAttack = null;
+
+            const possibleActions = getAllPossibleActions('p1', gameState).filter(a => a.pieceId === pieceId);
+
+            if (possibleActions.length === 0) {
+                gameState.message = "This piece has no available moves or attacks.";
+                render();
+                return;
+            }
+
+            gameState.message = "Selected piece. Choose a destination.";
+            const hasDoubleStackAttack = possibleActions.some(a => a.type === 'double-stack');
+
+            for (const action of possibleActions) {
+                if (action.type === 'move') {
+                    gameState.highlightedMoves.push({ r: action.r, c: action.c });
+                } else if (action.type === 'attack') {
+                    gameState.highlightedAttacks.push({ landing: action.landingPos, target: action.targetPos, type: 'single' });
+                } else if (action.type === 'double-stack') {
+                    gameState.highlightedAttacks.push({ landing: action.landingPos, path: action.path, type: 'double-stack' });
+                    if (!gameState.highlightedDoubleStackAttacks.some(p => p.r === piece.position.r && p.c === piece.position.c)) {
+                        gameState.highlightedDoubleStackAttacks.push({ r: piece.position.r, c: piece.position.c });
+                    }
+                }
+            }
+            
+            if (piece.isCrowned && hasDoubleStackAttack) {
+                gameState.actions.push({ text: 'Declare Double-Stack Attack', onClick: declareDoubleStackAttack });
+            }
+            
+            render();
+        }
        
+        function handleBoardClick(event) {
+            if (gameState.gamePhase === 'GAME_OVER' || gameState.pendingMultiRoll) return;
+            const pieceEl = event.target.closest('[data-piece-id]');
+            const cellEl = event.target.closest('[data-row]');
+            if (gameState.gamePhase === 'PLAYING' && gameState.turn === 'p1') {
+                if (pieceEl) {
+                    const pieceId = parseInt(pieceEl.dataset.pieceId);
+                    const piece = getPiece(pieceId);
+                    if (piece.owner === 'p1') selectPiece(pieceId);
+                } else if (cellEl && gameState.selectedPieceId !== null) {
+                    const r = parseInt(cellEl.dataset.row);
+                    const c = parseInt(cellEl.dataset.col);
+                    declareMoveOrAttack(r, c);
+                }
+            } else if (gameState.gamePhase === 'SETUP_PLACEMENT') {
+                if (cellEl && gameState.placingPlayer === 'p1') {
+                    const r = parseInt(cellEl.dataset.row);
+                    const c = parseInt(cellEl.dataset.col);
+                    placeStartingPiece(r, c);
+                }
+            }
+        }
+
         function declareDoubleStackAttack() {
             if (!gameState.selectedPieceId) return;
             const piece = getPiece(gameState.selectedPieceId);
             if (!piece || !piece.isCrowned) return;
 
             gameState.pendingDoubleStackAttack = { pieceId: gameState.selectedPieceId };
-            gameState.message = "Double-Stack Attack declared! Click a purple square to perform the multi-jump.";
+            gameState.message = "Double-Stack Attack declared! Click an opponent's space to perform the multi-jump.";
             
+            // Filter highlights to only show double-stack options
             gameState.highlightedAttacks = gameState.highlightedAttacks.filter(a => a.type === 'double-stack');
             gameState.highlightedMoves = [];
             
@@ -1562,7 +1622,7 @@
             gameState.pendingDoubleStackAttack = null;
             gameState.highlightedPendingAttack = null;
             gameState.message = "Attack canceled. Select a move or another attack.";
-            selectPiece(pieceId);
+            selectPiece(pieceId); // Reselect the piece to show all its options again
         }
 
         function executeMove(pieceId, r, c) {
