@@ -33,7 +33,7 @@
             --highlight-double-stack: #9b59b6; /* Purple */
             --highlight-placement: #bde0fe;
             --text-light: #eee;
-            --text-dark: ##FFFFFF;
+            --text-dark: #FFFFFF;
 
             /* Piece and Image Variables */
             --p1-piece-image: none;
@@ -1328,6 +1328,7 @@
                 crownSpaces: { p1: { row: 4, col: 3 }, p2: { row: 0, col: 3 } },
                 turn: null, gamePhase: 'SETUP_DIFFICULTY', winner: null,
                 isHardMode: null,
+                isProfessionalMode: false, // <-- ADD THIS LINE
                 moveHistory: [],
                 message: "Choose your difficulty.",
                 rollMessage: '', selectedPieceId: null,
@@ -1337,11 +1338,34 @@
                 actions: [
                     { text: 'Normal Mode', onClick: () => setDifficulty(false) },
                     { text: 'Hard Mode', onClick: () => setDifficulty(true) },
+                    { text: 'Professional Mode', onClick: () => setProfessionalMode() } // <-- ADD THIS BUTTON
                 ]
             };
+            // ADD THIS LINE TO MAKE SURE THE AI BUTTON IS VISIBLE FOR A NEW GAME
+            getEl('ai-button').style.display = 'flex'; 
             document.querySelectorAll('.modal').forEach(m => m.classList.remove('visible'));
             render();
         }
+
+        function setDifficulty(isHard) {
+            gameState.isHardMode = isHard;
+            gameState.gamePhase = 'SETUP_D20_ROLL';
+            gameState.message = "Let's begin! Roll to start the game.";
+            gameState.actions = [{ text: 'Roll to Start Game', onClick: setupRollOff }];
+            render();
+        }
+
+        // ADD THIS ENTIRE NEW FUNCTION
+        function setProfessionalMode() {
+            gameState.isHardMode = true; // Use Hard Mode logic
+            gameState.isProfessionalMode = true;
+            getEl('ai-button').style.display = 'none'; // Hide the AI button
+            gameState.gamePhase = 'SETUP_D20_ROLL';
+            gameState.message = "Professional Mode selected. Roll to start.";
+            gameState.actions = [{ text: 'Roll to Start Game', onClick: setupRollOff }];
+            render();
+        }
+
 
         function setDifficulty(isHard) {
             gameState.isHardMode = isHard;
@@ -1477,85 +1501,6 @@
                 gameState.message = `You move first. Select a piece.`;
             }
             gameState.actions = [];
-            render();
-        }
-
-        function selectPiece(pieceId) {
-            if (gameState.pendingDoubleStackAttack || gameState.gamePhase !== 'PLAYING') return;
-            audioManager.play('click');
-            if (gameState.selectedPieceId === pieceId) {
-                gameState.selectedPieceId = null;
-                gameState.highlightedMoves = [];
-                gameState.highlightedAttacks = [];
-                gameState.highlightedDoubleStackAttacks = [];
-                gameState.actions = [];
-            } else {
-                gameState.selectedPieceId = pieceId;
-                const piece = getPiece(pieceId);
-                const {r, c} = piece.position;
-                const opponentCrownSpace = (piece.owner === 'p1') ? gameState.crownSpaces.p2 : gameState.crownSpaces.p1;
-               
-                const moves = [{r: r+1, c}, {r: r-1, c}, {r: r, c: c+1}, {r: r, c: c-1}];
-                gameState.highlightedMoves = moves.filter(m => {
-                    const isOpponentCrown = (m.r === opponentCrownSpace.row && m.c === opponentCrownSpace.col);
-                    if (piece.isCrowned && isOpponentCrown) return false;
-                    return !isOutOfBounds(m.r, m.c) && !getPieceAt(m.r, m.c) && !isOwnCrownSpace(piece.owner, m.r, m.c);
-                });
-               
-                const attackDirs = [ {dr: -1, dc: -1}, {dr: -1, dc: 1}, {dr: 1, dc: -1}, {dr: 1, dc: 1} ];
-                gameState.highlightedAttacks = [];
-                gameState.highlightedDoubleStackAttacks = [];
-                let hasDoubleStackAttack = false;
-
-                for (const dir of attackDirs) {
-                    const targetPos = {r: r + dir.dr, c: c + dir.dc};
-                    const landingPos = {r: r + dir.dr * 2, c: c + dir.dc * 2};
-                    const targetPiece = getPieceAt(targetPos.r, targetPos.c);
-                    
-                    const isValidLanding = !isOutOfBounds(landingPos.r, landingPos.c) && !getPieceAt(landingPos.r, landingPos.c) && !isOwnCrownSpace(piece.owner, landingPos.r, landingPos.c);
-
-                    if (targetPiece && targetPiece.owner !== piece.owner && isValidLanding) {
-                        gameState.highlightedAttacks.push({ type: 'single', target: targetPos, landing: landingPos });
-                    }
-                }
-
-                if (piece.isCrowned) {
-                    for (const dir1 of attackDirs) {
-                        const opponent1Pos = { r: r + dir1.dr, c: c + dir1.dc };
-                        const landing1Pos = { r: r + dir1.dr * 2, c: c + dir1.dc * 2 };
-                        const opponent1 = getPieceAt(opponent1Pos.r, opponent1Pos.c);
-                        
-                        const isOpponentCrown1 = (landing1Pos.r === opponentCrownSpace.row && landing1Pos.c === opponentCrownSpace.col);
-                        const isValidLanding1 = !isOutOfBounds(landing1Pos.r, landing1Pos.c) && !getPieceAt(landing1Pos.r, landing1Pos.c) && !isOwnCrownSpace(piece.owner, landing1Pos.r, landing1Pos.c) && !isOpponentCrown1;
-
-                        if (opponent1 && opponent1.owner !== piece.owner && isValidLanding1) {
-                            for (const dir2 of attackDirs) {
-                                const opponent2Pos = { r: landing1Pos.r + dir2.dr, c: c + dir2.dc };
-                                const landing2Pos = { r: landing1Pos.r + dir2.dr * 2, c: c + dir2.dc * 2 };
-                                const opponent2 = getPieceAt(opponent2Pos.r, opponent2Pos.c);
-
-                                const isOpponentCrown2 = (landing2Pos.r === opponentCrownSpace.row && landing2Pos.c === opponentCrownSpace.col);
-                                const isValidLanding2 = !isOutOfBounds(landing2Pos.r, landing2Pos.c) && !getPieceAt(landing2Pos.r, landing2Pos.c) && !isOwnCrownSpace(piece.owner, landing2Pos.r, landing2Pos.c) && !isOpponentCrown2;
-
-                                if (opponent2 && opponent2.owner !== piece.owner && opponent2.id !== opponent1.id && isValidLanding2) {
-                                    hasDoubleStackAttack = true;
-                                    gameState.highlightedAttacks.push({
-                                        type: 'double-stack',
-                                        landing: landing2Pos,
-                                        path: { opponent1: opponent1Pos, landing1: landing1Pos, opponent2: opponent2Pos }
-                                    });
-                                    gameState.highlightedDoubleStackAttacks.push(landing2Pos);
-                                }
-                            }
-                        }
-                    }
-                }
-               
-                gameState.actions = [];
-                if (hasDoubleStackAttack) {
-                     gameState.actions.push({ text: 'Declare Double-Stack Attack', onClick: () => declareDoubleStackAttack() });
-                }
-            }
             render();
         }
        
