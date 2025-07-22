@@ -1171,7 +1171,7 @@
             getEl('p1_reserve').textContent = gameState.players.p1.piecesInReserve;
             getEl('p2_reserve').textContent = gameState.players.p2.piecesInReserve;
             const p1CapturedContainer = getEl('p1_captured_display');
-p1CapturedContainer.innerHTML = '';
+			p1CapturedContainer.innerHTML = '';
             for (let i = 0; i < gameState.players.p1.capturedOpponentPieces; i++) {
                 const capturedEl = document.createElement('div');
                 capturedEl.className = 'captured-icon';
@@ -1222,8 +1222,6 @@ p1CapturedContainer.innerHTML = '';
                     if (r === gameState.crownSpaces.p1.row && c === gameState.crownSpaces.p1.col) cell.classList.add('player1-crown-spot');
                     if (r === gameState.crownSpaces.p2.row && c === gameState.crownSpaces.p2.col) cell.classList.add('player2-crown-spot');
                     
-                    // FIXED: In Professional Mode, do not show any visual aids for moves.
-                    // The logic still relies on these arrays, but they are not rendered visually.
                     if (!gameState.isProfessionalMode) {
                         if (gameState.highlightedMoves.some(m => m.r === r && m.c === c)) cell.classList.add('highlight-move');
                         if (gameState.highlightedAttacks.some(a => a.landing.r === r && a.landing.c === c)) cell.classList.add('highlight-attack');
@@ -1430,8 +1428,6 @@ p1CapturedContainer.innerHTML = '';
        
         function placeStartingPiece(r, c) {
             const isValidPlacement = gameState.highlightedPlacements.some(p => p.r === r && p.c === c);
-            
-            // In professional mode, highlights aren't shown, so we allow any valid spot on the back row.
             const playerStartRow = gameState.placingPlayer === 'p1' ? gameState.boardSize.rows - 1 : 0;
             const isProModePlacement = gameState.isProfessionalMode && r === playerStartRow && !isOwnCrownSpace(gameState.placingPlayer, r, c) && getPieceAt(r,c) === null;
 
@@ -1485,12 +1481,10 @@ p1CapturedContainer.innerHTML = '';
             render();
         }
         
-        // ADDED: This function was missing. It's crucial for calculating available actions.
         function selectPiece(pieceId) {
             const piece = getPiece(pieceId);
             if (!piece || piece.owner !== 'p1') return;
 
-            // If the same piece is clicked again, deselect it.
             if (gameState.selectedPieceId === pieceId) {
                 gameState.selectedPieceId = null;
                 gameState.highlightedMoves = [];
@@ -1571,7 +1565,6 @@ p1CapturedContainer.innerHTML = '';
             gameState.pendingDoubleStackAttack = { pieceId: gameState.selectedPieceId };
             gameState.message = "Double-Stack Attack declared! Click an opponent's space to perform the multi-jump.";
             
-            // Filter highlights to only show double-stack options
             gameState.highlightedAttacks = gameState.highlightedAttacks.filter(a => a.type === 'double-stack');
             gameState.highlightedMoves = [];
             
@@ -1622,7 +1615,7 @@ p1CapturedContainer.innerHTML = '';
             gameState.pendingDoubleStackAttack = null;
             gameState.highlightedPendingAttack = null;
             gameState.message = "Attack canceled. Select a move or another attack.";
-            selectPiece(pieceId); // Reselect the piece to show all its options again
+            selectPiece(pieceId);
         }
 
         function executeMove(pieceId, r, c) {
@@ -1630,12 +1623,16 @@ p1CapturedContainer.innerHTML = '';
             const isForfeitMove = isOwnCrownSpace(piece.owner, r, c);
             
             movePieceOnBoard(piece, r, c);
-            if(gameState.winner) return;
+            if(gameState.winner) {
+                render(); // render forfeit move before modal
+                return;
+            }
 
             audioManager.play('move');
 
             const oppCrown = gameState.crownSpaces[piece.owner === 'p1' ? 'p2' : 'p1'];
             if (r === oppCrown.row && c === oppCrown.col) {
+                render();
                 enterCrowningPhase(pieceId);
             } else {
                 endTurn();
@@ -1676,7 +1673,9 @@ p1CapturedContainer.innerHTML = '';
                     gameState.board[attackData.targetPos.r][attackData.targetPos.c] = null;
                     gameState.pieces = gameState.pieces.filter(p => p.id !== defender.id);
                     movePieceOnBoard(attacker, attackData.landingPos.r, attackData.landingPos.c);
+                    render(); // Render the successful move immediately
                     if(gameState.winner) return;
+
                     const oppCrown = (attacker.owner === 'p1') ? gameState.crownSpaces.p2 : gameState.crownSpaces.p1;
                     if (attackData.landingPos.r === oppCrown.row && attackData.landingPos.c === oppCrown.col) {
                         enterCrowningPhase(attacker.id);
@@ -1722,20 +1721,43 @@ p1CapturedContainer.innerHTML = '';
             if (multiRoll.rollsNeeded === 7) successMsg += ` | Defender Successes: ${multiRoll.defenderSuccesses}`;
             gameState.rollMessage = successMsg;
 
-            if (multiRoll.rollsMade >= multiRoll.rollsNeeded) {
-                const onCompleteCallback = gameState.pendingMultiRoll.onComplete;
-                if(onCompleteCallback) {
-                    onCompleteCallback(); 
+            // NEW: Check for early conclusion
+            let outcomeDecided = false;
+            if (multiRoll.rollsNeeded === 3) {
+                if (multiRoll.successes >= 2) {
+                    outcomeDecided = true;
+                    gameState.message = "Attacker reached 2 successes. Rolling stops.";
+                } else if (multiRoll.rollsMade - multiRoll.successes >= 2) {
+                    outcomeDecided = true;
+                    gameState.message = "Attacker reached 2 failures. Rolling stops.";
                 }
+            } else if (multiRoll.rollsNeeded === 7) {
+                if (multiRoll.successes >= 4) {
+                    outcomeDecided = true;
+                    gameState.message = "Attacker reached 4 successes. Rolling stops.";
+                } else if (multiRoll.defenderSuccesses >= 4) {
+                    outcomeDecided = true;
+                    gameState.message = "Defender's number rolled 4 times. Rolling stops.";
+                }
+            }
+
+            render();
+
+            if (multiRoll.rollsMade >= multiRoll.rollsNeeded || outcomeDecided) {
+                setTimeout(() => { // Brief delay to let user see final roll result
+                    const onCompleteCallback = gameState.pendingMultiRoll.onComplete;
+                    if (onCompleteCallback) onCompleteCallback();
+                }, 1200);
             } else {
                 if (gameState.turn === 'p1') {
                     gameState.actions = [{text: `Roll Die (${multiRoll.rollsMade + 1} of ${multiRoll.rollsNeeded})`, onClick: executeSingleRoll}];
                 } else {
                     setTimeout(executeSingleRoll, 1500);
                 }
+                render();
             }
-            render();
         }
+
 
         function resolveMultiRollAttack() {
             const { attackData, rollsNeeded, successes, defenderSuccesses } = gameState.pendingMultiRoll;
@@ -1770,6 +1792,7 @@ p1CapturedContainer.innerHTML = '';
                 audioManager.play('fail');
             }
             gameState.message = message;
+            render(); // Render state changes immediately
             setTimeout(endTurn, 2500);
         }
 
@@ -1828,6 +1851,7 @@ p1CapturedContainer.innerHTML = '';
                 audioManager.play('fail');
                 gameState.message = `Double-Stack Attack failed at Stage ${stage}.`;
                 gameState.rollMessage = "The attack ends.";
+                render();
                 setTimeout(endTurn, 2500);
                 return;
             }
@@ -1851,7 +1875,7 @@ p1CapturedContainer.innerHTML = '';
 
             if (stage === 1) {
                 movePieceOnBoard(attacker, landingPos.r, landingPos.c);
-                if (gameState.winner) return;
+                if (gameState.winner) { render(); return; }
                 gameState.pendingDoubleStackAttack.stage = 2;
                 render();
                 setTimeout(executeNextDoubleStackJump, 1500);
@@ -1862,12 +1886,13 @@ p1CapturedContainer.innerHTML = '';
                 const newPiece = { id: newId, owner: attacker.owner, isCrowned: false, position: null };
                 gameState.pieces.push(newPiece);
                 movePieceOnBoard(newPiece, path.landingPos.r, path.landingPos.c);
-                if (gameState.winner) return;
+                if (gameState.winner) { render(); return; }
 
                 movePieceOnBoard(attacker, path.landing1.r, path.landing1.c);
-                if (gameState.winner) return;
+                if (gameState.winner) { render(); return; }
                 
                 gameState.message = "Double-Stack Attack complete! The piece split and handled two opponents.";
+                render();
                 
                 const oppCrown = (attacker.owner === 'p1') ? gameState.crownSpaces.p2 : gameState.crownSpaces.p1;
                 if (path.landing1.r === oppCrown.row && path.landing1.c === oppCrown.col) {
@@ -1948,16 +1973,24 @@ p1CapturedContainer.innerHTML = '';
                 }
                 crownModal.classList.add('visible');
 
-            } else { 
+            } else { // Bot's turn to choose
                 setTimeout(() => {
                     if (!hasReserves) {
                         resolveCrowning('none');
                         return;
                     }
                     
-                    let bestChoice = 'crown'; 
                     const placementData = getValidReinforcementPlacement('p2');
+                    const botPieces = gameState.pieces.filter(p => p.owner === 'p2');
+                    const nonCrownedCount = botPieces.filter(p => !p.isCrowned).length;
 
+                    // NEW HEURISTIC: Force reinforcement if low on pieces and it's a valid move.
+                    if (placementData && nonCrownedCount <= 2) {
+                        resolveCrowning('reinforce');
+                        return; // Decision made, exit.
+                    }
+
+                    let bestChoice = 'crown'; 
                     if (placementData) {
                         const crownState = applyActionToState({type: 'crown', pieceId: pieceId}, 'p2', gameState);
                         const reinforceState = applyActionToState({type: 'reinforce', pieceId: pieceId, placementData}, 'p2', gameState);
@@ -1965,7 +1998,6 @@ p1CapturedContainer.innerHTML = '';
                         const crownScore = masterEvaluateBoardState(crownState, 'p2');
                         const reinforceScore = masterEvaluateBoardState(reinforceState, 'p2');
 
-                        // The 'point' value needed for reinforce to be better than crown.
                         const strategicCostOfNotCrowning = 200;
                         if (reinforceScore > crownScore + strategicCostOfNotCrowning) {
                             bestChoice = 'reinforce';
@@ -1998,11 +2030,11 @@ p1CapturedContainer.innerHTML = '';
                     const newPiece = { id: newId, owner: player, isCrowned: false, position: null };
                     gameState.pieces.push(newPiece);
                     movePieceOnBoard(newPiece, newPiecePos.r, newPiecePos.c);
-                    if(gameState.winner) return;
+                    if(gameState.winner) { render(); return; }
                     playerObj.piecesInReserve--;
 
                     movePieceOnBoard(piece, relocatedPiecePos.r, relocatedPiecePos.c);
-                    if(gameState.winner) return;
+                    if(gameState.winner) { render(); return; }
 
                     gameState.message = `${player === 'p1' ? 'You' : "The Bot"} reinforced! A new piece was placed and the original returned.`;
                 } else {
@@ -2121,7 +2153,6 @@ p1CapturedContainer.innerHTML = '';
             
             const currentStateHash = generateStateHash(gameState);
             gameState.moveHistory.push(currentStateHash);
-            // Keep a longer history to prevent more complex loops
             if (gameState.moveHistory.length > 16) {
                 gameState.moveHistory.shift();
             }
@@ -2183,17 +2214,16 @@ p1CapturedContainer.innerHTML = '';
             }
             
             const parentHash = generateStateHash(gState);
-            const CROWNING_MOVE_PRIORITY_BONUS = 10000; // A massive, undeniable bonus
+            const CROWNING_MOVE_PRIORITY_BONUS = 10000;
 
             for (const action of possibleActions) {
                 const newState = applyActionToState(action, 'p2', gState);
                 
                 newState.moveHistory.push(parentHash);
-                if (newState.moveHistory.length > 12) newState.moveHistory.shift(); // Use a history of 12 for lookahead
+                if (newState.moveHistory.length > 12) newState.moveHistory.shift();
 
                 let score = minimax(newState, depth - 1, -Infinity, Infinity, false);
                 
-                // ADD THE OVERWHELMING BONUS FOR ANY CROWNING MOVE
                 if (action.isCrowningMove) {
                     score += CROWNING_MOVE_PRIORITY_BONUS;
                 }
@@ -2215,7 +2245,6 @@ p1CapturedContainer.innerHTML = '';
             }
             
             const currentStateHash = generateStateHash(gState);
-            // Use -Infinity for an absolute penalty against repeating moves.
             if (gState.moveHistory.includes(currentStateHash)) {
                 return -Infinity;
             }
@@ -2264,7 +2293,7 @@ p1CapturedContainer.innerHTML = '';
             if (oppPieces.length === 0) return 100000;
             
             const weights = {
-                BASELINE_SCORE: 1000,               // Base score for being in the game.
+                BASELINE_SCORE: 1000,
                 PIECE_VALUE: 100,
                 CROWNED_PIECE_VALUE: 350,
                 IMMINENT_WIN_BONUS: 5000,
@@ -2275,13 +2304,14 @@ p1CapturedContainer.innerHTML = '';
                 PATH_TO_CROWN_GRAVITY: 25,
                 MOBILITY: 5,
                 ATTACK_THREAT: 60,
+                CROWNED_ATTACK_THREAT_BONUS: 50, // NEW: Bonus for crowned piece making a normal attack
                 DOUBLE_STACK_THREAT: 120,
                 THREAT_ON_CROWNED: 200,
                 PIECE_IS_THREATENED_PENALTY: -150,
                 CROWNED_IS_THREATENED_PENALTY: -600,
             };
 
-            let score = weights.BASELINE_SCORE; // Start with the baseline.
+            let score = weights.BASELINE_SCORE;
             const myCrownedCount = myPieces.filter(p => p.isCrowned).length;
             score += myPieces.length * weights.PIECE_VALUE;
             score += myCrownedCount * weights.CROWNED_PIECE_VALUE;
@@ -2323,10 +2353,18 @@ p1CapturedContainer.innerHTML = '';
             score += possibleActions.length * weights.MOBILITY;
 
             for(const action of possibleActions) {
+                const actingPiece = getPiece(action.pieceId, gState); // Get the piece performing the action
                 if(action.type === 'attack') {
                     const targetPiece = getPieceAt(action.targetPos.r, action.targetPos.c, gState);
-                    score += weights.ATTACK_THREAT;
-                    if(targetPiece?.isCrowned) score += weights.THREAT_ON_CROWNED;
+                    let attackScore = weights.ATTACK_THREAT;
+                    // NEW: Add bonus if the attacker is crowned
+                    if(actingPiece.isCrowned) {
+                        attackScore += weights.CROWNED_ATTACK_THREAT_BONUS;
+                    }
+                    if(targetPiece?.isCrowned) {
+                        attackScore += weights.THREAT_ON_CROWNED;
+                    }
+                    score += attackScore;
                 } else if (action.type === 'double-stack') {
                     score += weights.DOUBLE_STACK_THREAT;
                 }
@@ -2370,6 +2408,7 @@ p1CapturedContainer.innerHTML = '';
             const ownCrownSpace = gState.crownSpaces[playerId];
 
             for (const piece of myPieces) {
+                if (!piece.position) continue; // Skip captured pieces
                 const {r, c} = piece.position;
 
                 // Standard Moves
@@ -2377,7 +2416,7 @@ p1CapturedContainer.innerHTML = '';
                 for (const m of moves) {
                     if (piece.isCrowned && m.r === opponentCrownSpace.row && m.c === opponentCrownSpace.col) continue;
                     if (!isOutOfBounds(m.r, m.c, gState) && !getPieceAt(m.r, m.c, gState) && !(m.r === ownCrownSpace.row && m.c === ownCrownSpace.col)) {
-                        const isCrowningMove = (m.r === opponentCrownSpace.row && m.c === opponentCrownSpace.col);
+                        const isCrowningMove = (!piece.isCrowned && m.r === opponentCrownSpace.row && m.c === opponentCrownSpace.col);
                         allActions.push({ type: 'move', pieceId: piece.id, r: m.r, c: m.c, isCrowningMove: isCrowningMove });
                     }
                 }
@@ -2389,7 +2428,7 @@ p1CapturedContainer.innerHTML = '';
                     const landingPos = {r: r + dir.dr * 2, c: c + dir.dc * 2};
                     const targetPiece = getPieceAt(targetPos.r, targetPos.c, gState);
                     if(targetPiece && targetPiece.owner === opponentId && !isOutOfBounds(landingPos.r, landingPos.c, gState) && !getPieceAt(landingPos.r, landingPos.c, gState) && !(landingPos.r === ownCrownSpace.row && landingPos.c === ownCrownSpace.col)){
-                        const isCrowningMove = (landingPos.r === opponentCrownSpace.row && landingPos.c === opponentCrownSpace.col);
+                        const isCrowningMove = (!piece.isCrowned && landingPos.r === opponentCrownSpace.row && landingPos.c === opponentCrownSpace.col);
                         allActions.push({ type: 'attack', pieceId: piece.id, targetPos, landingPos, isCrowningMove: isCrowningMove });
                     }
                 }
@@ -2402,11 +2441,10 @@ p1CapturedContainer.innerHTML = '';
                         const op1 = getPieceAt(op1Pos.r, op1Pos.c, gState);
                         if (op1?.owner === opponentId && !isOutOfBounds(l1Pos.r, l1Pos.c, gState) && !getPieceAt(l1Pos.r, l1Pos.c, gState) && !(l1Pos.r === ownCrownSpace.row && l1Pos.c === ownCrownSpace.col)) {
                             for (const dir2 of attackDirs) {
-                                const op2Pos = { r: l1Pos.r + dir2.dr, c: c + dir2.dc };
-                                const l2Pos = { r: l1Pos.r + dir2.dr * 2, c: c + dir2.dc * 2 };
+                                const op2Pos = { r: l1Pos.r + dir2.dr, c: l1Pos.c + dir2.dc };
+                                const l2Pos = { r: l1Pos.r + dir2.dr * 2, c: l1Pos.c + dir2.dc * 2 };
                                 const op2 = getPieceAt(op2Pos.r, op2Pos.c, gState);
                                 if (op2?.owner === opponentId && op1.id !== op2.id && !isOutOfBounds(l2Pos.r, l2Pos.c, gState) && !getPieceAt(l2Pos.r, l2Pos.c, gState) && !(l2Pos.r === ownCrownSpace.row && l2Pos.c === ownCrownSpace.col)) {
-                                    // Crowning is disallowed for double-stack attacks, so isCrowningMove is always false
                                     allActions.push({ type: 'double-stack', pieceId: piece.id, path: { opponent1: op1Pos, landing1: l1Pos, opponent2: op2Pos }, landingPos: l2Pos, isCrowningMove: false });
                                 }
                             }
